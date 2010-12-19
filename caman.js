@@ -853,6 +853,7 @@
                 });
               } else {
                 Caman.trigger( self, "queueFinished", {id: self.canvas_id} );
+                self.worker.terminate();
               }
                             
               self.inProcess = false;
