@@ -44,6 +44,8 @@
     
     Caman.ready = false;
     Caman.store = {};
+    Caman.baseUUID = 0;
+    Caman.uuid = 'caman';
         
     Caman.manip = Caman.prototype = {
       /*
@@ -102,7 +104,9 @@
             return this;
             
           }, that = this;
-        
+
+        this.uuid = (new Date()).getTime().toString() + (++Caman.baseUUID);
+
         if ( typeof options !== "string" ) {
 
           img.src = options.src; 
@@ -174,7 +178,7 @@
       
       finished: function (callback) {
         var that = this;
-        Caman.listen("queueFinished", function (data) {
+        Caman.listen( this, "queueFinished", function (data) {
           if (data.id === that.canvas_id) {
             callback.call(that);
           }
@@ -736,15 +740,25 @@
             _type = target;
             _data = type;
           }
-        
-          if ( Caman.events.fn[_type] && Caman.sizeOf(Caman.events.fn[_type]) ) {
 
-            Caman.forEach(Caman.events.fn[_type], function ( obj, key ) {
+          var globalEvents = Caman.events.fn[Caman.uuid], targetEvents;
+          var targetId = _target.hasOwnProperty('uuid') ? _target.uuid : Caman.uuid;
 
-              obj.call(_target, _data);
-            
-            });
+          if ( targetId != Caman.uuid ) {
+            targetEvents = Caman.events.fn[targetId];
           }
+
+          Caman.forEach([globalEvents, targetEvents], function ( events ) {
+
+            if ( events && events[_type] && Caman.sizeOf(events[_type]) ) {
+
+              Caman.forEach(events[_type], function ( obj, key ) {
+
+                obj.call(_target, _data);
+
+              });
+            }
+          });
         },
         
         /*
@@ -759,13 +773,19 @@
             _target = this;
             _type = target;
             _fn = type;
-          }        
-
-          if ( !Caman.events.fn[_type] ) {
-            Caman.events.fn[_type] = [];
           }
 
-          Caman.events.fn[_type].push(_fn);
+          var targetId = _target.hasOwnProperty('uuid') ? _target.uuid : Caman.uuid;
+
+          if ( !Caman.events.fn[targetId] ) {
+            Caman.events.fn[targetId] = {};
+          }
+
+          if ( !Caman.events.fn[targetId][_type] ) {
+            Caman.events.fn[targetId][_type] = [];
+          }
+
+          Caman.events.fn[targetId][_type].push(_fn);
           
           return true;
         }
@@ -800,7 +820,7 @@
           
           if ( !!self.queue[processFnName] && ( data.processFnName === processFnName ) ) {
         
-            Caman.trigger( "processStart", {
+            Caman.trigger( self, "processStart", {
               id: self.canvas_id, 
               completed: data.processFnName
             });
@@ -832,11 +852,11 @@
                   "adjust": self.queue[next].adjust
                 });
               } else {
-                Caman.trigger( "queueFinished", {id: self.canvas_id} );
+                Caman.trigger( self, "queueFinished", {id: self.canvas_id} );
               }
                             
               self.inProcess = false;
-              Caman.trigger( "processComplete", { id: self.canvas_id, completed: data.processFnName } );              
+              Caman.trigger( self, "processComplete", { id: self.canvas_id, completed: data.processFnName } );
             }
             
             commit();
